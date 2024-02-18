@@ -1,33 +1,102 @@
 app-id: com.zerobrane.studio
 runtime: org.freedesktop.Platform
-runtime-version: '22.08'
+runtime-version: '23.08'
 sdk: org.freedesktop.Sdk
 command: zbstudio
+rename-icon: zbstudio
+rename-desktop-file: zbstudio.desktop
+rename-appdata-file: zbstudio.appdata.xml
+
 finish-args:
 - "--share=ipc"
 - "--socket=x11"
 - "--share=network"
 - "--filesystem=home"
 - "--device=dri"
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /share/aclocal
+  - /share/man
+  - '*.la'
+  - '*.a'
+  - /share/doc
+
 modules:
-- name: zbstudio
-  buildsystem: simple
-  build-commands:
-  - pwd
-  - sh ZeroBraneStudioEduPack-1.90-linux.sh --keep --noexec --nox11
-  - patch -t -p0 -i install.sh.patch
-  - patch -t -p0 -i zbstudio.sh.patch
-  - patch -t -p0 -i zbstudio.appdata.xml.patch
-  - desktop-file-edit --set-icon=com.zerobrane.studio ZeroBraneStudio-linux/app/zbstudio/res/zbstudio.desktop
-  - mkdir -p /app/bin /app/share/applications /app/share/appdata
-  - cd ZeroBraneStudio-linux && sh install.sh
-  sources:
-  - type: file
-    url: https://download.zerobrane.com/ZeroBraneStudioEduPack-1.90-linux.sh
-    sha256: 89444484475b47124abed531046515d9a4ae51b0310e4c00d90a9db6b6475951
-  - type: file
-    path: zbstudio.sh.patch
-  - type: file
-    path: zbstudio.appdata.xml.patch
-  - type: file
-    path: install.sh.patch
+  - shared-modules/intltool/intltool-0.51.json
+  - shared-modules/glu/glu-9.json
+
+  - name: wxWidgets
+    sources:
+      - type: git
+        url: https://github.com/wxWidgets/wxWidgets
+        tag: v3.1.4
+    config-opts:
+      - --with-gtk=3
+      - --enable-unicode
+
+  - name: lua-5.1
+    buildsystem: simple
+    build-commands:
+      - make -j $FLATPAK_BUILDER_N_JOBS CFLAGS="$CFLAGS -fPIC -DLUA_USE_LINUX" linux
+      - make INSTALL_TOP=$FLATPAK_DEST TO_LIB='liblua.a liblua.so.5.1.5' install
+      - ln -sf liblua.so.5.1.5 $FLATPAK_DEST/lib/liblua.so
+      - ln -sf liblua.so.5.1.5 $FLATPAK_DEST/lib/liblua.so.5.1
+      - install -Dm0644 etc/lua.pc $FLATPAK_DEST/lib/pkgconfig/lua.pc
+      - ln -sf lua.pc $FLATPAK_DEST/lib/pkgconfig/lua51.pc
+      - ln -sf lua.pc $FLATPAK_DEST/lib/pkgconfig/lua5.1.pc
+      - ln -sf lua.pc $FLATPAK_DEST/lib/pkgconfig/lua-5.1.pc
+    sources:
+      - type: archive
+        url: https://www.lua.org/ftp/lua-5.1.5.tar.gz
+        sha256: 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
+      - type: patch
+        path: lua-5.1.5-so.patch
+      - type: shell
+        commands:
+        - sed -i "s|/usr/local|$FLATPAK_DEST|" etc/lua.pc src/luaconf.h
+
+  - name: wxLua
+    buildsystem: cmake-ninja
+    subdir: wxLua
+    config-opts:
+      - -DwxWidgets_CONFIG_EXECUTABLE=/app/bin/wx-config
+      - -DwxLua_LUA_LIBRARY_USE_BUILTIN=OFF
+      - -DwxLua_LUA_LIBRARY_VERSION=5.1
+      - -DwxLua_LUA_LIBRARY_BUILD_SHARED=ON
+      - -DBUILD_SHARED_LIBS=ON
+    post-install:
+      - install -d ${FLATPAK_DEST}/lib/lua/5.1
+      - mv ${FLATPAK_DEST}/lib/{lib,lua/5.1/}wx.so
+    sources:
+      - type: git
+        url: https://github.com/pkulchenko/wxlua
+        tag: v3.0.0.9
+        commit: c6b71e91e66775d8397ad995410ecb5176e85b51
+
+  - name: luasocket
+    buildsystem: simple
+    build-commands:
+      - make LUAV=5.1 linux
+      - make install-unix INSTALL_TOP=${FLATPAK_DEST} INSTALL_TOP_CDIR=${FLATPAK_DEST}/lib/lua/5.1/ INSTALL_TOP_LDIR=${FLATPAK_DEST}/share/lua/5.1/
+    sources:
+      - type: git
+        url: https://github.com/lunarmodules/luasocket
+        tag: v3.1.0
+        commit: 95b7efa9da506ef968c1347edf3fc56370f0deed
+
+  - name: ZeroBraneStudio
+    buildsystem: cmake-ninja
+    subdir: build
+    post-install:
+      - cp -a ../lualibs ${FLATPAK_DEST}/share/zbstudio/
+    sources:
+      - type: git
+        url: https://github.com/pkulchenko/ZeroBraneStudio
+        tag: '1.90'
+        commit: 5b127c5adeb61acf838221d80eaa36b43397d49f
+      - type: patch
+        path: zbstudio.patch
+      - type: patch
+        path: appstream.patch
