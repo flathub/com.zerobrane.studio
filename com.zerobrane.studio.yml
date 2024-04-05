@@ -94,8 +94,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/pkulchenko/ZeroBraneStudio
-        tag: '1.90'
-        commit: 5b127c5adeb61acf838221d80eaa36b43397d49f
+        tag: '2.01'
+        commit: 483ef0dcb593f9599ff27715472425e39a0588e8
       - type: patch
         path: zbstudio.patch
       - type: patch
