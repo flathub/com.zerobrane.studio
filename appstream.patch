@@ -51,7 +51,7 @@ index c39cd299..9170ce2a 100644
    <update_contact>paul@zerobrane.com</update_contact>
 -</application>
 +  <releases>
-+    <release version="1.90" date="2020-02-09"/>
++    <release version="2.01" date="2023-09-26"/>
 +  </releases>
 +</component>
 -- 
