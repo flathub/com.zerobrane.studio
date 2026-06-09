@@ -1,6 +1,6 @@
 app-id: com.zerobrane.studio
 runtime: org.freedesktop.Platform
-runtime-version: '23.08'
+runtime-version: '26.08'
 sdk: org.freedesktop.Sdk
 command: zbstudio
 rename-icon: zbstudio
@@ -8,33 +8,36 @@ rename-desktop-file: zbstudio.desktop
 rename-appdata-file: zbstudio.appdata.xml
 
 finish-args:
-- "--share=ipc"
-- "--socket=x11"
-- "--share=network"
-- "--filesystem=home"
-- "--device=dri"
+  - --share=ipc
+  - --socket=x11
+  - --share=network
+  - --filesystem=home
+  - --device=dri
 
 cleanup:
   - /include
   - /lib/pkgconfig
+  - /man
+  - /share/bakefile
   - /share/aclocal
+  - /share/doc
   - /share/man
   - '*.la'
   - '*.a'
-  - /share/doc
 
 modules:
   - shared-modules/intltool/intltool-0.51.json
   - shared-modules/glu/glu-9.json
 
   - name: wxWidgets
+    config-opts:
+      - --with-gtk=3
+      - --enable-unicode
     sources:
       - type: git
         url: https://github.com/wxWidgets/wxWidgets
         tag: v3.1.4
-    config-opts:
-      - --with-gtk=3
-      - --enable-unicode
+        commit: 6cdaedd42ba59331b3dc4ead50e0bac76ae14c19
 
   - name: lua-5.1
     buildsystem: simple
@@ -52,7 +55,7 @@ modules:
         url: https://www.lua.org/ftp/lua-5.1.5.tar.gz
         sha256: 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
       - type: patch
-        path: lua-5.1.5-so.patch
+        path: patches/lua-5.1.5-so.patch
       - type: shell
         commands:
         - sed -i "s|/usr/local|$FLATPAK_DEST|" etc/lua.pc src/luaconf.h
@@ -66,14 +69,20 @@ modules:
       - -DwxLua_LUA_LIBRARY_VERSION=5.1
       - -DwxLua_LUA_LIBRARY_BUILD_SHARED=ON
       - -DBUILD_SHARED_LIBS=ON
+      - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     post-install:
       - install -d ${FLATPAK_DEST}/lib/lua/5.1
       - mv ${FLATPAK_DEST}/lib/{lib,lua/5.1/}wx.so
+    cleanup:
+      - /share/wxlua/doc
+      - /share/wxlua/samples
     sources:
       - type: git
         url: https://github.com/pkulchenko/wxlua
         tag: v3.0.0.9
         commit: c6b71e91e66775d8397ad995410ecb5176e85b51
+      - type: patch
+        path: patches/wxlua-fix-build-error.patch
 
   - name: luasocket
     buildsystem: simple
@@ -89,6 +98,8 @@ modules:
   - name: ZeroBraneStudio
     buildsystem: cmake-ninja
     subdir: build
+    config-opts:
+      - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     post-install:
       - cp -a ../lualibs ${FLATPAK_DEST}/share/zbstudio/
     sources:
@@ -97,6 +108,6 @@ modules:
         tag: '2.01'
         commit: 483ef0dcb593f9599ff27715472425e39a0588e8
       - type: patch
-        path: zbstudio.patch
+        path: patches/zbstudio.patch
       - type: patch
-        path: appstream.patch
+        path: patches/appstream.patch
